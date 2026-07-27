@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUD - Desafio 40 Dias</title>
+  <!-- Chart.js para o gráfico de linha -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PapaParse para ler o CSV do Google Sheets -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0D0D11;
+      --card-bg: #18181C;
+      --card-border: #26262E;
+      --neon-green: #00FF66;
+      --neon-green-glow: rgba(0, 255, 102, 0.2);
+      --text-main: #F1F1F5;
+      --text-muted: #8E8E9A;
+      --yellow: #FACC15;
+      --red: #EF4444;
+      --empty-day: #22222A;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Bahnschrift', 'Segoe UI', sans-serif; }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .dashboard {
+      width: 100%;
+      max-width: 850px;
+      background-color: #121216;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    /* HEADER / BARRA DE XP NO TOPO DE BORDA A BORDA */
+    .header-xp {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      margin: -4px -4px 0 -4px;
+    }
+
+    .header-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .xp-bar-container {
+      width: 100%;
+      height: 22px;
+      background-color: #0A0A0D;
+      border-radius: 11px;
+      overflow: hidden;
+      border: 1px solid #222;
+    }
+
+    .xp-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #00B348, var(--neon-green));
+      box-shadow: 0 0 12px var(--neon-green);
+      border-radius: 11px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* METRICS GRID */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .metric-card .title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .metric-card .value {
+      font-size: 1.8rem;
+      font-weight: 800;
+    }
+
+    .text-green { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green-glow); }
+    .text-yellow { color: var(--yellow); }
+    .text-red { color: var(--red); }
+
+    /* RECOMPENSA & SITUAÇÃO DA MISSÃO */
+    .info-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .info-row { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .info-card h3 {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    .reward-box {
+      background: rgba(0, 255, 102, 0.05);
+      border: 1px dashed var(--neon-green);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--neon-green);
+    }
+
+    .status-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.95rem;
+    }
+
+    /* GRID DOS DIAS (BOLINHAS) & PAINEL DE EVOLUÇÃO */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+
+    /* GRID DE 40 BOLINHAS DOS DIAS */
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 8px;
+      padding-top: 6px;
+    }
+
+    .day-dot {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background-color: var(--empty-day);
+      border: 1px solid #2B2B36;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #555566;
+      font-weight: 700;
+      transition: all 0.3s ease;
+    }
+
+    /* ESTADOS DAS BOLINHAS DE STATUS */
+    .day-dot.aprovado {
+      background-color: var(--neon-green);
+      color: #000;
+      border-color: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green-glow);
+    }
+
+    .day-dot.tabom {
+      background-color: var(--yellow);
+      color: #000;
+      border-color: var(--yellow);
+    }
+
+    .day-dot.cagou {
+      background-color: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    /* MANTIDO VAZIO */
+    .empty-panel {
+      height: 100%;
+      min-height: 150px;
+      border: 1px dashed var(--card-border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #444452;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard">
+    <!-- BARRA DE XP / TITULO TOPO A TOPO -->
+    <div class="header-xp">
+      <div class="header-title">
+        <span>🏆 DESAFIO <span class="text-green">40 DIAS</span></span>
+        <span class="text-green" id="xp-text">0 / 40 (0%)</span>
+      </div>
+      <div class="xp-bar-container">
+        <div class="xp-bar-fill" id="xp-fill"></div>
+      </div>
+    </div>
+
+    <!-- CARDS DE MÉTRICAS -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="title">🟢 BOA MLK!!</div>
+        <div class="value text-green" id="val-aprovados">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="title">🟡 EH, TA BOM</div>
+        <div class="value text-yellow" id="val-tabom">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="title">🔴 CAGOU NO PAU FDP</div>
+        <div class="value text-red" id="val-cagou">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="title">🎯 ADERÊNCIA</div>
+        <div class="value" id="val-aderencia">0%</div>
+      </div>
+      <div class="metric-card">
+        <div class="title">🔥 SEQUÊNCIA</div>
+        <div class="value text-green" id="val-sequencia">0d</div>
+      </div>
+    </div>
+
+    <!-- RECOMPENSA E SITUAÇÃO DA MISSÃO -->
+    <div class="info-row">
+      <div class="info-card">
+        <h3>🍕 RECOMPENSA</h3>
+        <div class="reward-box">
+          🍕 Rodízio + 🍰 Sobremesa
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🎯 SITUAÇÃO DA MISSÃO</h3>
+        <ul class="status-list">
+          <li>✅ Você ainda pode errar <b id="val-pode-errar" class="text-green">0 dias</b></li>
+          <li>🎮 Faltam <b id="val-faltam-aprovados">0 aprovados</b> nos próximos <span id="val-dias-restantes">0</span> dias</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PAINEL DOS DIAS E PAINEL VAZIO -->
+    <div class="charts-row">
+      <div class="info-card">
+        <h3>📊 STATUS DOS DIAS</h3>
+        <div class="days-grid" id="daysGrid">
+          <!-- As 40 bolinhas são geradas via JavaScript -->
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>📈 EVOLUÇÃO DA ADERÊNCIA</h3>
+        <div class="empty-panel">
+          Painel reservado
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+    const URL_GOOGLE_SHEETS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFWVfMczpzh4DY4INnG-5Ellk7HBGhIminRbgWQKm1EU3PC-eJUG8wJUHVCwcmcLWAn_oyOWSZ6sfK/pub?gid=1049167611&single=true&output=csv';
+
+    const TOTAL_DIAS_DESAFIO = 40;
+    const MAX_ERROS_PERMITIDOS = 3;
+
+    function criarGradeDias() {
+      const grid = document.getElementById('daysGrid');
+      grid.innerHTML = '';
+      for (let i = 1; i <= TOTAL_DIAS_DESAFIO; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'day-dot';
+        dot.id = `day-${i}`;
+        dot.innerText = i;
+        grid.appendChild(dot);
+      }
+    }
+
+    async function carregarDadosGoogleSheets() {
+  criarGradeDias();
+
+  try {
+    // Requisição direta sem proxy (funciona perfeitamente em http://localhost:8000)
+    const response = await fetch(URL_GOOGLE_SHEETS, { cache: 'no-store' });
+    
+    if (!response.ok) throw new Error('Falha HTTP ao carregar planilha: ' + response.status);
+    
+    const csvTexto = await response.text();
+    
+    // Converte o CSV puro em matriz JavaScript
+    const parsed = Papa.parse(csvTexto, { header: false });
+    
+    console.log("=== DADOS BRUTOS DA PLANILHA ===");
+    console.log(parsed.data);
+    
+    processarDados(parsed.data);
+  } catch (err) {
+    console.error("Erro ao carregar planilha:", err);
+  }
+}
+
+    function processarDados(matriz) {
+      let aprovados = 0;
+      let taBom = 0;
+      let cagou = 0;
+      let sequenciaAtual = 0;
+      let diasRegistrados = 0;
+
+      if (!matriz || matriz.length === 0) {
+        console.warn("Matriz vazia ou inválida.");
+        return;
+      }
+
+      console.log(`Total de linhas recebidas: ${matriz.length}`);
+
+      // Procura por termos conhecidos em TODAS as células da tabela
+      let contadorDia = 0;
+
+      for (let r = 0; r < matriz.length; r++) {
+        const linha = matriz[r];
+        if (!linha) continue;
+
+        for (let c = 0; c < linha.length; c++) {
+          const val = linha[c] ? linha[c].toString().trim() : '';
+          if (!val) continue;
+
+          const st = val.toLowerCase();
+
+          // Ignora o cabeçalho 'meta'
+          if (st === 'meta') continue;
+
+          const eAprovado = st.includes('aprovado') || st.includes('boa mlk') || st === 'boa';
+          const eTaBom = st.includes('tá bom') || st.includes('ta bom') || st.includes('eh, ta bom') || st === 'bom';
+          const eCagou = st.includes('cagou') || st.includes('ruim');
+
+          if (eAprovado || eTaBom || eCagou) {
+            contadorDia++;
+            if (contadorDia > TOTAL_DIAS_DESAFIO) break;
+
+            diasRegistrados++;
+            const dotElement = document.getElementById(`day-${contadorDia}`);
+
+            console.log(`Dia ${contadorDia} detectado na Linha ${r+1}, Coluna ${c+1}: "${val}"`);
+
+            if (eAprovado) {
+              aprovados++;
+              sequenciaAtual++;
+              if (dotElement) dotElement.className = 'day-dot aprovado';
+            } else if (eTaBom) {
+              taBom++;
+              sequenciaAtual = 0;
+              if (dotElement) dotElement.className = 'day-dot tabom';
+            } else if (eCagou) {
+              cagou++;
+              sequenciaAtual = 0;
+              if (dotElement) dotElement.className = 'day-dot cagou';
+            }
+
+            // Encontrou um status nessa linha, passa para a próxima linha
+            break;
+          }
+        }
+      }
+
+      console.log(`Resumo: ${diasRegistrados} dias registrados (Aprovados: ${aprovados}, Ta bom: ${taBom}, Cagou: ${cagou})`);
+
+      // Atualiza Cards de Valores
+      document.getElementById('val-aprovados').innerText = aprovados;
+      document.getElementById('val-tabom').innerText = taBom;
+      document.getElementById('val-cagou').innerText = cagou;
+      document.getElementById('val-sequencia').innerText = `${sequenciaAtual}d`;
+
+      // Cálculos da Barra de XP
+      const porcentagemConcluida = Math.round((diasRegistrados / TOTAL_DIAS_DESAFIO) * 100);
+      const aderenciaGeral = diasRegistrados > 0 ? (((aprovados + (taBom * 0.5)) / diasRegistrados) * 100).toFixed(1) : 0;
+      
+      document.getElementById('val-aderencia').innerText = `${aderenciaGeral}%`;
+      document.getElementById('xp-text').innerText = `${diasRegistrados} / ${TOTAL_DIAS_DESAFIO} (${porcentagemConcluida}%)`;
+      document.getElementById('xp-fill').style.width = `${porcentagemConcluida}%`;
+
+      // Situação da Missão
+      const errosAtuais = cagou;
+      const podeErrar = Math.max(0, MAX_ERROS_PERMITIDOS - errosAtuais);
+      const diasRestantes = TOTAL_DIAS_DESAFIO - diasRegistrados;
+      const aprovadosNecessarios = Math.max(0, (TOTAL_DIAS_DESAFIO - MAX_ERROS_PERMITIDOS) - aprovados);
+
+      document.getElementById('val-pode-errar').innerText = `${podeErrar} dias`;
+      document.getElementById('val-faltam-aprovados').innerText = `${aprovadosNecessarios} aprovados`;
+      document.getElementById('val-dias-restantes').innerText = diasRestantes;
+    }
+
+    // Carrega a interface
+    carregarDadosGoogleSheets();
+  </script>
+</body>
+</html>
