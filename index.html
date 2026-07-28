@@ -319,27 +319,24 @@
     }
 
     async function carregarDadosGoogleSheets() {
-  criarGradeDias();
+      criarGradeDias();
 
-  try {
-    // Requisição direta sem proxy (funciona perfeitamente em http://localhost:8000)
-    const response = await fetch(URL_GOOGLE_SHEETS, { cache: 'no-store' });
-    
-    if (!response.ok) throw new Error('Falha HTTP ao carregar planilha: ' + response.status);
-    
-    const csvTexto = await response.text();
-    
-    // Converte o CSV puro em matriz JavaScript
-    const parsed = Papa.parse(csvTexto, { header: false });
-    
-    console.log("=== DADOS BRUTOS DA PLANILHA ===");
-    console.log(parsed.data);
-    
-    processarDados(parsed.data);
-  } catch (err) {
-    console.error("Erro ao carregar planilha:", err);
-  }
-}
+      try {
+        const response = await fetch(URL_GOOGLE_SHEETS, { cache: 'no-store' });
+        
+        if (!response.ok) throw new Error('Falha HTTP ao carregar planilha: ' + response.status);
+        
+        const csvTexto = await response.text();
+        const parsed = Papa.parse(csvTexto, { header: false });
+        
+        console.log("=== DADOS BRUTOS DA PLANILHA ===");
+        console.log(parsed.data);
+        
+        processarDados(parsed.data);
+      } catch (err) {
+        console.error("Erro ao carregar planilha:", err);
+      }
+    }
 
     function processarDados(matriz) {
       let aprovados = 0;
@@ -353,9 +350,6 @@
         return;
       }
 
-      console.log(`Total de linhas recebidas: ${matriz.length}`);
-
-      // Procura por termos conhecidos em TODAS as células da tabela
       let contadorDia = 0;
 
       for (let r = 0; r < matriz.length; r++) {
@@ -368,12 +362,12 @@
 
           const st = val.toLowerCase();
 
-          // Ignora o cabeçalho 'meta'
-          if (st === 'meta') continue;
+          // Ignora cabeçalhos
+          if (st === 'meta' || st === 'status' || st === 'dia') continue;
 
-          const eAprovado = st.includes('mandou bem garoto') || st.includes('boa mlk') || st === 'boa';
-          const eTaBom = st.includes('eh, tá bom') || st.includes('ta bom') || st.includes('eh, ta bom') || st === 'bom';
-          const eCagou = st.includes('cagou no pau') || st.includes('ruim');
+          const eAprovado = st.includes('mandou bem garoto') || st.includes('boa mlk') || st.includes('aprovado');
+          const eTaBom = st.includes('eh, tá bom') || st.includes('eh, ta bom') || st.includes('tá bom') || st.includes('ta bom');
+          const eCagou = st.includes('cagou no pau') || st.includes('caguei') || st.includes('cagou');
 
           if (eAprovado || eTaBom || eCagou) {
             contadorDia++;
@@ -382,7 +376,7 @@
             diasRegistrados++;
             const dotElement = document.getElementById(`day-${contadorDia}`);
 
-            console.log(`Dia ${contadorDia} detectado na Linha ${r+1}, Coluna ${c+1}: "${val}"`);
+            console.log(`Dia ${contadorDia} (Linha ${r+1}, Col ${c+1}): "${val}"`);
 
             if (eAprovado) {
               aprovados++;
@@ -397,9 +391,6 @@
               sequenciaAtual = 0;
               if (dotElement) dotElement.className = 'day-dot cagou';
             }
-
-            // Encontrou um status nessa linha, passa para a próxima linha
-            break;
           }
         }
       }
