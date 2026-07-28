@@ -51,7 +51,6 @@
       border: 1px solid var(--card-border);
       border-radius: 16px;
       padding: 20px;
-      margin: -4px -4px 0 -4px;
     }
 
     .header-title {
@@ -85,7 +84,7 @@
     /* METRICS GRID */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 12px;
     }
 
@@ -98,7 +97,7 @@
     }
 
     .metric-card .title {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
       text-transform: uppercase;
       font-weight: 700;
@@ -158,7 +157,7 @@
       font-size: 0.95rem;
     }
 
-    /* STATUS DOS DIAS - DE FORA A FORA */
+    /* STATUS DOS DIAS - GRADE CORRIGIDA */
     .full-width-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -176,24 +175,28 @@
 
     .days-grid {
       display: grid;
-      grid-template-columns: repeat(20, 1fr)
-      grid-template-rows: repeat(2, auto);
+      grid-template-columns: repeat(20, minmax(0, 1fr)); /* Fix do grid */
       gap: 6px;
+      width: 100%;
     }
 
-    @media (max-width: 600px) {
-      .days-grid { grid-template-columns: repeat(10, 1fr); }
+    @media (max-width: 650px) {
+      .days-grid { 
+        grid-template-columns: repeat(10, minmax(0, 1fr)); 
+      }
     }
 
     .day-dot {
+      width: 100%;
       aspect-ratio: 1;
+      min-width: 0; /* Impede que a bolinha exploda de tamanho */
       border-radius: 50%;
       background-color: var(--empty-day);
       border: 1px solid #2B2B36;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       color: #555566;
       font-weight: 700;
       transition: all 0.3s ease;
@@ -239,7 +242,6 @@
       gap: 10px;
       font-family: 'Consolas', 'Courier New', monospace;
       font-size: 0.85rem;
-      height: auto; /* Expande sem rolagem */
     }
 
     .coach-line {
@@ -252,7 +254,7 @@
 <body>
 
   <div class="dashboard">
-    <!-- BARRA DE XP / TITULO TOPO A TOPO -->
+    <!-- BARRA DE XP -->
     <div class="header-xp">
       <div class="header-title">
         <span>🏆 DESAFIO <span class="text-green">40 DIAS</span></span>
@@ -304,15 +306,15 @@
       </div>
     </div>
 
-    <!-- STATUS DOS DIAS (FORA A FORA) -->
+    <!-- STATUS DOS DIAS -->
     <div class="full-width-card">
       <h3>📊 STATUS DOS DIAS</h3>
       <div class="days-grid" id="daysGrid">
-        <!-- As 40 bolinhas geradas via JS -->
+        <!-- Bolinhas geradas via JS -->
       </div>
     </div>
 
-    <!-- COACHES LADO A LADO EMBAIXO DE TUDO -->
+    <!-- COACHES LADO A LADO -->
     <div class="coach-row">
       <div class="info-card">
         <h3>🗣️ COACH (HOJE)</h3>
