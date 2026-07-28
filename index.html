@@ -43,7 +43,6 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
-      overflow: hidden;
     }
 
     /* HEADER / BARRA DE XP */
@@ -159,17 +158,7 @@
       font-size: 0.95rem;
     }
 
-    /* GRID DOS DIAS & COACH */
-    .charts-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    @media (max-width: 600px) {
-      .charts-row { grid-template-columns: 1fr; }
-    }
-
+    /* GRID DOS DIAS */
     .days-grid {
       display: grid;
       grid-template-columns: repeat(10, 1fr);
@@ -210,7 +199,17 @@
       border-color: var(--red);
     }
 
-    /* FEEDBACK DO COACH (TERMINAL) */
+    /* COACH SEM FILTRO (SEM SCROLLBAR / EXPANSÍVEL) */
+    .coach-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .coach-row { grid-template-columns: 1fr; }
+    }
+
     .coach-box {
       background-color: #0A0A0D;
       border: 1px solid var(--card-border);
@@ -220,9 +219,8 @@
       flex-direction: column;
       gap: 10px;
       font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 0.85rem;
-      max-height: 250px;
-      overflow-y: auto;
+      font-size: 0.82rem;
+      height: auto; /* Deixa o card expandir sem criar rolagem */
     }
 
     .coach-line {
@@ -287,18 +285,27 @@
       </div>
     </div>
 
-    <!-- PAINEL DOS DIAS E COACH SEM FILTRO -->
-    <div class="charts-row">
+    <!-- PAINEL DOS DIAS -->
+    <div class="info-card">
+      <h3>📊 STATUS DOS DIAS</h3>
+      <div class="days-grid" id="daysGrid">
+        <!-- As 40 bolinhas geradas via JS -->
+      </div>
+    </div>
+
+    <!-- PAINÉIS DO COACH: DIA ATUAL VS GLOBAL -->
+    <div class="coach-row">
       <div class="info-card">
-        <h3>📊 STATUS DOS DIAS</h3>
-        <div class="days-grid" id="daysGrid">
-          <!-- As 40 bolinhas geradas via JavaScript -->
+        <h3>🗣️ COACH (HOJE)</h3>
+        <div class="coach-box" id="coachHoje">
+          <div class="coach-line" style="color: #666;">Aguardando dados de hoje...</div>
         </div>
       </div>
+
       <div class="info-card">
-        <h3>🗣️ COACH SEM FILTRO</h3>
-        <div class="coach-box" id="coachFeedback">
-          <div class="coach-line" style="color: #666;">Carregando análises do sistema...</div>
+        <h3>📊 COACH (MÉDIA GLOBAL)</h3>
+        <div class="coach-box" id="coachGlobal">
+          <div class="coach-line" style="color: #666;">Calculando médias do desafio...</div>
         </div>
       </div>
     </div>
@@ -322,7 +329,6 @@
       }
     }
 
-    /* ---- LÓGICA DE FEEDBACK DO COACH ---- */
     function converterParaPorcentagem(strVal) {
       if (!strVal) return 0;
       let limpo = strVal.toString().replace('%', '').replace(',', '.').trim();
@@ -330,6 +336,7 @@
       return isNaN(val) ? 0 : Math.round(val);
     }
 
+    /* ---- REGRAS DE FEEDBACK ---- */
     function getFeedbackAgua(pct) {
       if (pct < 70)  return `💧 Água: <b>${pct}%</b> - caralho ein que bosta`;
       if (pct < 80)  return `💧 Água: <b>${pct}%</b> - ta melhorando mas ta uma bosta`;
@@ -375,13 +382,25 @@
       return `🏃 Cardio: <b>${pct}%</b> - pra que tanto cardio? ta querendo fugir da policia? 🚓`;
     }
 
+    function gerarListaMsgs(kcal, agua, prot, carbo, gord, acad, cardio, calist) {
+      return [
+        `🔥 Calorias: <b>${kcal} kcal</b>`,
+        getFeedbackAgua(agua),
+        getFeedbackProteina(prot),
+        getFeedbackCarbo(carbo),
+        getFeedbackGordura(gord),
+        getFeedbackTreino(acad, "Academia"),
+        getFeedbackCardio(cardio),
+        getFeedbackTreino(calist, "Calistenia")
+      ];
+    }
+
     async function carregarDadosGoogleSheets() {
       criarGradeDias();
 
       try {
         const response = await fetch(URL_GOOGLE_SHEETS, { cache: 'no-store' });
-        
-        if (!response.ok) throw new Error('Falha HTTP ao carregar planilha: ' + response.status);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         
         const csvTexto = await response.text();
         const parsed = Papa.parse(csvTexto, { header: false });
@@ -402,6 +421,7 @@
       if (!matriz || matriz.length === 0) return;
 
       let contadorDia = 0;
+      let ultimaLinhaComDados = null;
 
       for (let r = 0; r < matriz.length; r++) {
         const linha = matriz[r];
@@ -412,7 +432,6 @@
           if (!val) continue;
 
           const st = val.toLowerCase();
-
           if (st === 'meta' || st === 'status' || st === 'dia') continue;
 
           const eAprovado = st.includes('mandou bem garoto') || st.includes('boa mlk') || st.includes('aprovado');
@@ -424,6 +443,7 @@
             if (contadorDia > TOTAL_DIAS_DESAFIO) break;
 
             diasRegistrados++;
+            ultimaLinhaComDados = linha;
             const dotElement = document.getElementById(`day-${contadorDia}`);
 
             if (eAprovado) {
@@ -443,7 +463,7 @@
         }
       }
 
-      // Atualiza Cards de Valores
+      // Atualiza os Cards Superiores
       document.getElementById('val-aprovados').innerText = aprovados;
       document.getElementById('val-tabom').innerText = taBom;
       document.getElementById('val-cagou').innerText = cagou;
@@ -465,44 +485,47 @@
       document.getElementById('val-faltam-aprovados').innerText = `${aprovadosNecessarios} aprovados`;
       document.getElementById('val-dias-restantes').innerText = diasRestantes;
 
-      // ---- LEITURA DA LINHA DAS MÉDIAS (Colunas Y até AG) ----
-      // A linha 3 (índice 2) traz os valores consolidados mostrados na imagem
+      // ---- 1. LEITURA DA MÉDIA GLOBAL (Linha Consolidada Y a AG) ----
       let linhaMedias = null;
       for (let r = 0; r < matriz.length; r++) {
         if (matriz[r] && matriz[r][24] && matriz[r][24].toString().includes(',')) {
-          // Procura a linha que tem as porcentagens de Y a AG
           linhaMedias = matriz[r];
           break;
         }
       }
-
-      // Caso não encontre por valor, pega a 3ª linha válida
-      if (!linhaMedias && matriz.length >= 3) {
-        linhaMedias = matriz[2];
-      }
+      if (!linhaMedias && matriz.length >= 3) linhaMedias = matriz[2];
 
       if (linhaMedias) {
-        let kcalAbs    = linhaMedias[24] || '0'; // Y
-        let pctAgua    = converterParaPorcentagem(linhaMedias[25]); // Z
-        let pctProt    = converterParaPorcentagem(linhaMedias[26]); // AA
-        let pctCarbo   = converterParaPorcentagem(linhaMedias[27]); // AB
-        let pctGord    = converterParaPorcentagem(linhaMedias[28]); // AC
-        let pctAcad    = converterParaPorcentagem(linhaMedias[30]); // AE
-        let pctCardio  = converterParaPorcentagem(linhaMedias[31]); // AF
-        let pctCalist  = converterParaPorcentagem(linhaMedias[32]); // AG
+        let msgsGlobal = gerarListaMsgs(
+          linhaMedias[24] || '0',
+          converterParaPorcentagem(linhaMedias[25]),
+          converterParaPorcentagem(linhaMedias[26]),
+          converterParaPorcentagem(linhaMedias[27]),
+          converterParaPorcentagem(linhaMedias[28]),
+          converterParaPorcentagem(linhaMedias[30]),
+          converterParaPorcentagem(linhaMedias[31]),
+          converterParaPorcentagem(linhaMedias[32])
+        );
 
-        let msgsCoach = [
-          `🔥 Calorias Média: <b>${kcalAbs} kcal</b>`,
-          getFeedbackAgua(pctAgua),
-          getFeedbackProteina(pctProt),
-          getFeedbackCarbo(pctCarbo),
-          getFeedbackGordura(pctGord),
-          getFeedbackTreino(pctAcad, "Academia"),
-          getFeedbackCardio(pctCardio),
-          getFeedbackTreino(pctCalist, "Calistenia")
-        ];
+        document.getElementById('coachGlobal').innerHTML = msgsGlobal
+          .map(m => `<div class="coach-line">> ${m}</div>`)
+          .join('');
+      }
 
-        document.getElementById('coachFeedback').innerHTML = msgsCoach
+      // ---- 2. LEITURA DO DIA ATUAL (Última Linha Registrada) ----
+      if (ultimaLinhaComDados) {
+        let msgsHoje = gerarListaMsgs(
+          ultimaLinhaComDados[24] || '0',
+          converterParaPorcentagem(ultimaLinhaComDados[25]),
+          converterParaPorcentagem(ultimaLinhaComDados[26]),
+          converterParaPorcentagem(ultimaLinhaComDados[27]),
+          converterParaPorcentagem(ultimaLinhaComDados[28]),
+          converterParaPorcentagem(ultimaLinhaComDados[30]),
+          converterParaPorcentagem(ultimaLinhaComDados[31]),
+          converterParaPorcentagem(ultimaLinhaComDados[32])
+        );
+
+        document.getElementById('coachHoje').innerHTML = msgsHoje
           .map(m => `<div class="coach-line">> ${m}</div>`)
           .join('');
       }
