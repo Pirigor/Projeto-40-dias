@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HUD - Desafio 40 Dias</title>
-  <!-- Chart.js para o gráfico de linha -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- PapaParse para ler o CSV do Google Sheets -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
@@ -48,7 +46,7 @@
       overflow: hidden;
     }
 
-    /* HEADER / BARRA DE XP NO TOPO DE BORDA A BORDA */
+    /* HEADER / BARRA DE XP */
     .header-xp {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -161,7 +159,7 @@
       font-size: 0.95rem;
     }
 
-    /* GRID DOS DIAS (BOLINHAS) & PAINEL DE EVOLUÇÃO */
+    /* GRID DOS DIAS & COACH */
     .charts-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -172,7 +170,6 @@
       .charts-row { grid-template-columns: 1fr; }
     }
 
-    /* GRID DE 40 BOLINHAS DOS DIAS */
     .days-grid {
       display: grid;
       grid-template-columns: repeat(10, 1fr);
@@ -194,7 +191,6 @@
       transition: all 0.3s ease;
     }
 
-    /* ESTADOS DAS BOLINHAS DE STATUS */
     .day-dot.aprovado {
       background-color: var(--neon-green);
       color: #000;
@@ -214,17 +210,25 @@
       border-color: var(--red);
     }
 
-    /* MANTIDO VAZIO */
-    .empty-panel {
-      height: 100%;
-      min-height: 150px;
-      border: 1px dashed var(--card-border);
+    /* FEEDBACK DO COACH (TERMINAL) */
+    .coach-box {
+      background-color: #0A0A0D;
+      border: 1px solid var(--card-border);
       border-radius: 12px;
+      padding: 14px;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #444452;
+      flex-direction: column;
+      gap: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
       font-size: 0.85rem;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .coach-line {
+      line-height: 1.4;
+      border-bottom: 1px dashed rgba(255,255,255,0.05);
+      padding-bottom: 6px;
     }
   </style>
 </head>
@@ -283,18 +287,18 @@
       </div>
     </div>
 
-    <!-- PAINEL DOS DIAS E PAINEL VAZIO -->
+    <!-- PAINEL DOS DIAS E COACH SEM FILTRO -->
     <div class="charts-row">
       <div class="info-card">
         <h3>📊 STATUS DOS DIAS</h3>
         <div class="days-grid" id="daysGrid">
-          <!-- As 40 bolinhas são geradas via JavaScript -->
+          <!-- As 40 bolinhas geradas via JavaScript -->
         </div>
       </div>
       <div class="info-card">
-        <h3>📈 EVOLUÇÃO DA ADERÊNCIA</h3>
-        <div class="empty-panel">
-          Painel reservado
+        <h3>🗣️ COACH SEM FILTRO</h3>
+        <div class="coach-box" id="coachFeedback">
+          <div class="coach-line" style="color: #666;">Carregando análises do sistema...</div>
         </div>
       </div>
     </div>
@@ -318,6 +322,59 @@
       }
     }
 
+    /* ---- LÓGICA DE FEEDBACK DO COACH ---- */
+    function converterParaPorcentagem(strVal) {
+      if (!strVal) return 0;
+      let limpo = strVal.toString().replace('%', '').replace(',', '.').trim();
+      let val = parseFloat(limpo);
+      return isNaN(val) ? 0 : Math.round(val);
+    }
+
+    function getFeedbackAgua(pct) {
+      if (pct < 70)  return `💧 Água: <b>${pct}%</b> - caralho ein que bosta`;
+      if (pct < 80)  return `💧 Água: <b>${pct}%</b> - ta melhorando mas ta uma bosta`;
+      if (pct < 90)  return `💧 Água: <b>${pct}%</b> - oia só ta ficando bom`;
+      if (pct < 100) return `💧 Água: <b>${pct}%</b> - mas pqp faltou um pouco só`;
+      if (pct < 110) return `💧 Água: <b>${pct}%</b> - seloco ein brabo`;
+      if (pct < 120) return `💧 Água: <b>${pct}%</b> - ta querendo mijar seu rim?`;
+      return `💧 Água: <b>${pct}%</b> - ala o arrombado virou o Aquaman`;
+    }
+
+    function getFeedbackProteina(pct) {
+      if (pct < 60)  return `🥩 Proteína: <b>${pct}%</b> - cocococó 🐔 franguinho demais, vai tomar whey carai!`;
+      if (pct < 80)  return `🥩 Proteína: <b>${pct}%</b> - nossa ala ta começando a ficar bom mas ta uma bosta`;
+      if (pct < 95)  return `🥩 Proteína: <b>${pct}%</b> - ta quase, força mais carne ai!`;
+      if (pct <= 105) return `🥩 Proteína: <b>${pct}%</b> - ala num é que ele bateu certinho? Brabo!`;
+      return `🥩 Proteína: <b>${pct}%</b> - tá querendo virar o Ramon Dino? Calma aí monstro!`;
+    }
+
+    function getFeedbackCarbo(pct) {
+      if (pct < 70)  return `🍚 Carbo: <b>${pct}%</b> - mano ce ta querendo passar fome? Come carbo porra!`;
+      if (pct < 90)  return `🍚 Carbo: <b>${pct}%</b> - carbo tá baixo ainda, põe mais arroz aí`;
+      if (pct <= 105) return `🍚 Carbo: <b>${pct}%</b> - carbo cravadinho, perfeitinho!`;
+      if (pct <= 120) return `🍚 Carbo: <b>${pct}%</b> - ala o cara quer virar o papai pig 🐷`;
+      return `🍚 Carbo: <b>${pct}%</b> - mano PARA de comer carboidrato porra!`;
+    }
+
+    function getFeedbackGordura(pct) {
+      if (pct < 70)  return `🥑 Gordura: <b>${pct}%</b> - gordura muito baixa, coloca um azeite nisso aí!`;
+      if (pct <= 105) return `🥑 Gordura: <b>${pct}%</b> - gordura dentro do esquema!`;
+      return `🥑 Gordura: <b>${pct}%</b> - tá tomando banha no copo? Segura essa gordura aí!`;
+    }
+
+    function getFeedbackTreino(pct, nome) {
+      if (pct === 0) return `🏋️ ${nome}: <b>0%</b> - ih vai ficar frango se nao for! VAI TREINAR!`;
+      if (pct < 100) return `🏋️ ${nome}: <b>${pct}%</b> - deu uma migué no treino mas tá valendo`;
+      return `🏋️ ${nome}: <b>${pct}%</b> - treino PAGO com sucesso, monstro!`;
+    }
+
+    function getFeedbackCardio(pct) {
+      if (pct === 0)   return `🏃 Cardio: <b>0%</b> - zero cardio? Coração tá pedindo socorro!`;
+      if (pct < 100)  return `🏃 Cardio: <b>${pct}%</b> - quase bateu o cardio, faltou pouco`;
+      if (pct <= 130) return `🏃 Cardio: <b>${pct}%</b> - cardio em dia, pulmão de aço!`;
+      return `🏃 Cardio: <b>${pct}%</b> - pra que tanto cardio? ta querendo fugir da policia? 🚓`;
+    }
+
     async function carregarDadosGoogleSheets() {
       criarGradeDias();
 
@@ -328,9 +385,6 @@
         
         const csvTexto = await response.text();
         const parsed = Papa.parse(csvTexto, { header: false });
-        
-        console.log("=== DADOS BRUTOS DA PLANILHA ===");
-        console.log(parsed.data);
         
         processarDados(parsed.data);
       } catch (err) {
@@ -345,10 +399,7 @@
       let sequenciaAtual = 0;
       let diasRegistrados = 0;
 
-      if (!matriz || matriz.length === 0) {
-        console.warn("Matriz vazia ou inválida.");
-        return;
-      }
+      if (!matriz || matriz.length === 0) return;
 
       let contadorDia = 0;
 
@@ -362,7 +413,6 @@
 
           const st = val.toLowerCase();
 
-          // Ignora cabeçalhos
           if (st === 'meta' || st === 'status' || st === 'dia') continue;
 
           const eAprovado = st.includes('mandou bem garoto') || st.includes('boa mlk') || st.includes('aprovado');
@@ -375,8 +425,6 @@
 
             diasRegistrados++;
             const dotElement = document.getElementById(`day-${contadorDia}`);
-
-            console.log(`Dia ${contadorDia} (Linha ${r+1}, Col ${c+1}): "${val}"`);
 
             if (eAprovado) {
               aprovados++;
@@ -395,15 +443,12 @@
         }
       }
 
-      console.log(`Resumo: ${diasRegistrados} dias registrados (Aprovados: ${aprovados}, Ta bom: ${taBom}, Cagou: ${cagou})`);
-
       // Atualiza Cards de Valores
       document.getElementById('val-aprovados').innerText = aprovados;
       document.getElementById('val-tabom').innerText = taBom;
       document.getElementById('val-cagou').innerText = cagou;
       document.getElementById('val-sequencia').innerText = `${sequenciaAtual}d`;
 
-      // Cálculos da Barra de XP
       const porcentagemConcluida = Math.round((diasRegistrados / TOTAL_DIAS_DESAFIO) * 100);
       const aderenciaGeral = diasRegistrados > 0 ? (((aprovados + (taBom * 0.5)) / diasRegistrados) * 100).toFixed(1) : 0;
       
@@ -411,7 +456,6 @@
       document.getElementById('xp-text').innerText = `${diasRegistrados} / ${TOTAL_DIAS_DESAFIO} (${porcentagemConcluida}%)`;
       document.getElementById('xp-fill').style.width = `${porcentagemConcluida}%`;
 
-      // Situação da Missão
       const errosAtuais = cagou;
       const podeErrar = Math.max(0, MAX_ERROS_PERMITIDOS - errosAtuais);
       const diasRestantes = TOTAL_DIAS_DESAFIO - diasRegistrados;
@@ -420,9 +464,50 @@
       document.getElementById('val-pode-errar').innerText = `${podeErrar} dias`;
       document.getElementById('val-faltam-aprovados').innerText = `${aprovadosNecessarios} aprovados`;
       document.getElementById('val-dias-restantes').innerText = diasRestantes;
+
+      // ---- LEITURA DA LINHA DAS MÉDIAS (Colunas Y até AG) ----
+      // A linha 3 (índice 2) traz os valores consolidados mostrados na imagem
+      let linhaMedias = null;
+      for (let r = 0; r < matriz.length; r++) {
+        if (matriz[r] && matriz[r][24] && matriz[r][24].toString().includes(',')) {
+          // Procura a linha que tem as porcentagens de Y a AG
+          linhaMedias = matriz[r];
+          break;
+        }
+      }
+
+      // Caso não encontre por valor, pega a 3ª linha válida
+      if (!linhaMedias && matriz.length >= 3) {
+        linhaMedias = matriz[2];
+      }
+
+      if (linhaMedias) {
+        let kcalAbs    = linhaMedias[24] || '0'; // Y
+        let pctAgua    = converterParaPorcentagem(linhaMedias[25]); // Z
+        let pctProt    = converterParaPorcentagem(linhaMedias[26]); // AA
+        let pctCarbo   = converterParaPorcentagem(linhaMedias[27]); // AB
+        let pctGord    = converterParaPorcentagem(linhaMedias[28]); // AC
+        let pctAcad    = converterParaPorcentagem(linhaMedias[30]); // AE
+        let pctCardio  = converterParaPorcentagem(linhaMedias[31]); // AF
+        let pctCalist  = converterParaPorcentagem(linhaMedias[32]); // AG
+
+        let msgsCoach = [
+          `🔥 Calorias Média: <b>${kcalAbs} kcal</b>`,
+          getFeedbackAgua(pctAgua),
+          getFeedbackProteina(pctProt),
+          getFeedbackCarbo(pctCarbo),
+          getFeedbackGordura(pctGord),
+          getFeedbackTreino(pctAcad, "Academia"),
+          getFeedbackCardio(pctCardio),
+          getFeedbackTreino(pctCalist, "Calistenia")
+        ];
+
+        document.getElementById('coachFeedback').innerHTML = msgsCoach
+          .map(m => `<div class="coach-line">> ${m}</div>`)
+          .join('');
+      }
     }
 
-    // Carrega a interface
     carregarDadosGoogleSheets();
   </script>
 </body>
